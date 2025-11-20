@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     outputs:
-      image: ${{ steps.build-image.outputs.image }}
+      image: ${{ steps.set-image.outputs.image }}
 
     steps:
     - name: Checkout code
@@ -72,8 +72,11 @@ jobs:
         cache-to: type=inline
 
     - name: Set output for deploy
+      id: set-image
       run: |
-        echo "image=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}" >> $GITHUB_OUTPUT
+        IMAGE="${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}"
+        echo "Setting build output image=$IMAGE"
+        echo "image=$IMAGE" >> $GITHUB_OUTPUT
 
   deploy:
     name: Deploy to ECS
@@ -97,6 +100,14 @@ jobs:
         aws ecs describe-task-definition \
           --task-definition ${{ env.ECS_TASK_DEFINITION }} \
           --query taskDefinition > task-definition.json
+
+    - name: Debug Render Inputs
+      run: |
+        echo "Render input image: ${{ needs.build.outputs.image }}"
+        if [ -z "${{ needs.build.outputs.image }}" ]; then
+          echo "ERROR: needs.build.outputs.image is empty - build step did not set image output" >&2
+          exit 1
+        fi
 
     - name: Fill in the new image ID in the Amazon ECS task definition
       id: task-def
