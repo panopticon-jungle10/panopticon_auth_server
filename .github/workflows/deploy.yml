@@ -47,11 +47,7 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-node-
 
-    - name: Set up QEMU
-      uses: docker/setup-qemu-action@v2
-
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v2
+    # lightweight: skipping QEMU/buildx setup for single-platform build
 
     - name: Login to Amazon ECR
       id: login-ecr
@@ -123,44 +119,16 @@ jobs:
         SECRET_PORT: ${{ secrets.PORT }}
       run: |
         set -euo pipefail
-        if command -v python3 >/dev/null 2>&1; then
-          python3 - <<'PY'
-import json,os
-def collect():
-    res={}
-    for k,v in os.environ.items():
-        if not k.startswith('SECRET_'): continue
-        name=k[len('SECRET_'):]
-        if v is None or v=='' or v=='null':
-            continue
-        res[name]=v
-    return res
-
-env = collect()
+        # Inject GitHub Secrets (prefixed with SECRET_) into task-definition.json using python
+        python3 -c 'import json,os,sys; env={k[7:]:v for k,v in os.environ.items() if k.startswith("SECRET_") and v not in ("","null")};
 if not env:
-    print('No GitHub Secrets provided (or they are empty). Leaving task-definition.json as-is')
-    raise SystemExit(0)
-
-with open('task-definition.json') as f:
-    td = json.load(f)
-# If the downloaded file contains a wrapper 'taskDefinition', unwrap it
-if 'taskDefinition' in td and isinstance(td['taskDefinition'], dict):
-    td = td['taskDefinition']
-
-for c in td.get('containerDefinitions', []):
-    existing = {e['name']: e.get('value','') for e in c.get('environment', [])}
-    existing.update(env)
-    c['environment'] = [{'name':k,'value':v} for k,v in existing.items()]
-    if 'secrets' in c:
-        del c['secrets']
-
-with open('task-definition.json','w') as f:
-    json.dump(td, f, indent=2)
-print('Injected GitHub Secrets into task-definition.json')
-PY
-        else
-          echo "python3 is required to inject GitHub Secrets; skipping injection step" >&2
-        fi
+    print("No GitHub Secrets provided (or they are empty). Leaving task-definition.json as-is"); sys.exit(0)
+with open("task-definition.json") as f:
+    td=json.load(f)
+if "taskDefinition" in td and isinstance(td["taskDefinition"], dict): td=td["taskDefinition"]
+for c in td.get("containerDefinitions", []): existing={e["name"]:e.get("value","") for e in c.get("environment", [])}; existing.update(env); c["environment"]=[{"name":k,"value":v} for k,v in existing.items()]; c.pop("secrets",None)
+with open("task-definition.json","w") as f: json.dump(td,f,indent=2)
+print("Injected GitHub Secrets into task-definition.json")'
 
     - name: Debug Render Inputs
       run: |
