@@ -121,14 +121,11 @@ jobs:
         set -euo pipefail
         # Inject GitHub Secrets (prefixed with SECRET_) into task-definition.json using python
         python3 -c 'import json,os,sys; env={k[7:]:v for k,v in os.environ.items() if k.startswith("SECRET_") and v not in ("","null")};
-if not env:
-    print("No GitHub Secrets provided (or they are empty). Leaving task-definition.json as-is"); sys.exit(0)
-with open("task-definition.json") as f:
-    td=json.load(f)
-if "taskDefinition" in td and isinstance(td["taskDefinition"], dict): td=td["taskDefinition"]
-for c in td.get("containerDefinitions", []): existing={e["name"]:e.get("value","") for e in c.get("environment", [])}; existing.update(env); c["environment"]=[{"name":k,"value":v} for k,v in existing.items()]; c.pop("secrets",None)
-with open("task-definition.json","w") as f: json.dump(td,f,indent=2)
-print("Injected GitHub Secrets into task-definition.json")'
+with open("task-definition.json") as f: td=json.load(f);
+if not env: print("No GitHub Secrets provided (or they are empty). Leaving task-definition.json as-is"); sys.exit(0)
+if "taskDefinition" in td and isinstance(td["taskDefinition"], dict): td=td["taskDefinition"]; 
+for c in td.get("containerDefinitions", []): existing={e["name"]:e.get("value","") for e in c.get("environment", [])}; existing.update(env); c["environment"]=[{"name":k,"value":v} for k,v in existing.items()]; c.pop("secrets",None);
+with open("task-definition.json","w") as f: json.dump(td,f,indent=2); print("Injected GitHub Secrets into task-definition.json")'
 
     - name: Debug Render Inputs
       run: |
