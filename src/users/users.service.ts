@@ -1,5 +1,6 @@
 import { Injectable, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { createHash, randomBytes } from 'crypto';
 
 @Injectable()
 export class UsersService {
@@ -111,6 +112,76 @@ export class UsersService {
     }
 
     throw new BadRequestException('insufficient identifiers');
+  }
+
+  /**
+   * Create a refresh session for a user and return the plaintext token and expiry.
+   */
+  async createSession(userId: string, expiresInSeconds = 60 * 60 * 24 * 30, ip?: string, userAgent?: string) {
+    const refreshToken = randomBytes(48).toString('hex');
+    const hash = createHash('sha256').update(refreshToken).digest('hex');
+    const expiresAt = new Date(Date.now() + expiresInSeconds * 1000);
+    await this.prisma.session.create({
+      data: { userId, refreshTokenHash: hash, expiresAt, ip: ip || null, userAgent: userAgent || null },
+    });
+    return { refreshToken, expiresAt };
+  }
+
+  /**
+   * Validate a refresh token, revoke the existing session and issue a new one.
+   */
+  async refreshAccessToken(refreshToken: string) {
+    const hash = createHash('sha256').update(refreshToken).digest('hex');
+    const session = await this.prisma.session.findFirst({
+      where: { refreshTokenHash: hash, revoked: false, expiresAt: { gt: new Date() } },
+      include: { user: true },
+    });
+
+    if (!session) {
+      throw new BadRequestException('Invalid or expired refresh token');
+    }
+
+    // Revoke old session
+    await this.prisma.session.update({ where: { id: session.id }, data: { revoked: true } });
+
+    // Create new session
+    const { refreshToken: newToken, expiresAt } = await this.createSession(session.userId);
+    return { user: session.user, refreshToken: newToken, expiresAt };
+  }
+
+  async revokeSessionById(sessionId: string) {
+    return this.prisma.session.update({ where: { id: sessionId }, data: { revoked: true } });
+  }
+
+  async getUserInfo(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { oauthAccounts: true },
+    });
+
+    if (!user) {
+      throw new BadRequestException(`User with ID "${userId}" not found`);
+    }
+
+    return user;
+  }
+
+  async updateUserInfo(userId: string, data: { displayName?: string; avatarUrl?: string }) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new BadRequestException(`User with ID "${userId}" not found`);
+    }
+
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        displayName: data.displayName || user.displayName,
+        avatarUrl: data.avatarUrl || user.avatarUrl,
+      },
+    });
   }
 }
 

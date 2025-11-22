@@ -8,37 +8,119 @@ datasource db {
 }
 
 model User {
-  id            String         @id @default(uuid())
-  email         String?        @unique
-  emailVerified Boolean        @default(false)
+  id            String    @id @default(uuid())
+  email         String?   @unique
+  emailVerified Boolean   @default(false)
   displayName   String?
   avatarUrl     String?
-  role          String         @default("user")
+  role          String    @default("user")
   metadata      Json?
   passwordHash  String?
   lastLoginAt   DateTime?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   oauthAccounts OAuthAccount[]
-  SloPolicies   Json?          // placeholder for future relations
+  sessions      Session[]
+  slos          SloPolicy[]
+  webhooks      WebhookConfig[]
 }
 
 model OAuthAccount {
-  id                 String   @id @default(uuid())
-  provider           String
-  providerAccountId  String
-  providerType       String?
-  accessToken        String?
-  refreshToken       String?
-  scope              String?
-  tokenExpiresAt     DateTime?
-  profileJson        Json?
-  userId             String
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id                String    @id @default(uuid())
+  provider          String
+  providerAccountId String
+  providerType      String?
+  accessToken       String?
+  refreshToken      String?
+  scope             String?
+  tokenExpiresAt    DateTime?
+  profileJson       Json?
+  userId            String
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
-  user               User     @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 
   @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id               String   @id @default(uuid())
+  userId           String
+  refreshTokenHash String
+  createdAt        DateTime @default(now())
+  expiresAt        DateTime
+  revoked          Boolean  @default(false)
+  ip               String?
+  userAgent        String?
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model SloPolicy {
+  id          String    @id @default(uuid())
+  userId      String
+
+  serviceName String
+  name        String
+
+  availabilityTarget  Float?   @default(99.9)
+  latencyTargetMs     Float?   @default(200)
+  errorRateTarget     Float?   @default(1.0)
+
+  availabilityEnabled Boolean @default(true)
+  latencyEnabled      Boolean @default(true)
+  errorRateEnabled    Boolean @default(true)
+
+  description String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user              User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  webhookMappings   SloWebhookMapping[]
+
+  @@index([userId])
+  @@unique([userId, serviceName, name])
+}
+
+model SloWebhookMapping {
+  id          String    @id @default(uuid())
+  sloId       String
+  webhookId   String
+  createdAt   DateTime  @default(now())
+
+  slo         SloPolicy       @relation(fields: [sloId], references: [id], onDelete: Cascade)
+  webhook     WebhookConfig   @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+
+  @@unique([sloId, webhookId])
+  @@index([sloId])
+  @@index([webhookId])
+}
+
+model WebhookConfig {
+  id          String    @id @default(uuid())
+  userId      String
+
+  type        String
+  name        String
+  webhookUrl  String
+  enabled     Boolean   @default(true)
+
+  smtpHost    String?
+  smtpPort    Int?
+  smtpUser    String?
+  smtpPassword String?
+  smtpTls     Boolean?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  lastTestedAt DateTime?
+
+  user              User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sloMappings       SloWebhookMapping[]
+
+  @@index([userId])
 }
