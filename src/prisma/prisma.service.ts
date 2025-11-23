@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { Injectable, OnModuleDestroy, OnModuleInit, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 
@@ -10,12 +11,12 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   }
 
   async onModuleInit() {
-    this.logger.log('Connecting Prisma Client');
+    this.logger.log(`[PRISMA] Connecting to database at: ${process.env.DATABASE_URL || 'DEFAULT'}`);
     try {
       await this.$connect();
-      this.logger.log('Prisma Client connected');
+      this.logger.log('[PRISMA] Successfully connected to database');
     } catch (err) {
-      this.logger.error('Prisma connect error', err as any);
+      this.logger.error('[PRISMA] Connection failed', err as any);
       throw err;
     }
   }

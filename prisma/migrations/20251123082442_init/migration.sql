@@ -1,11 +1,51 @@
-/*
-  Warnings:
+-- CreateTable
+CREATE TABLE "User" (
+    "id" TEXT NOT NULL,
+    "email" TEXT,
+    "emailVerified" BOOLEAN NOT NULL DEFAULT false,
+    "displayName" TEXT,
+    "avatarUrl" TEXT,
+    "role" TEXT NOT NULL DEFAULT 'user',
+    "metadata" JSONB,
+    "passwordHash" TEXT,
+    "lastLoginAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
-  - You are about to drop the column `SloPolicies` on the `User` table. All the data in the column will be lost.
+    CONSTRAINT "User_pkey" PRIMARY KEY ("id")
+);
 
-*/
--- AlterTable
-ALTER TABLE "User" DROP COLUMN "SloPolicies";
+-- CreateTable
+CREATE TABLE "OAuthAccount" (
+    "id" TEXT NOT NULL,
+    "provider" TEXT NOT NULL,
+    "providerAccountId" TEXT NOT NULL,
+    "providerType" TEXT,
+    "accessToken" TEXT,
+    "refreshToken" TEXT,
+    "scope" TEXT,
+    "tokenExpiresAt" TIMESTAMP(3),
+    "profileJson" JSONB,
+    "userId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "OAuthAccount_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Session" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "refreshTokenHash" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "revoked" BOOLEAN NOT NULL DEFAULT false,
+    "ip" TEXT,
+    "userAgent" TEXT,
+
+    CONSTRAINT "Session_pkey" PRIMARY KEY ("id")
+);
 
 -- CreateTable
 CREATE TABLE "SloPolicy" (
@@ -57,6 +97,15 @@ CREATE TABLE "WebhookConfig" (
 );
 
 -- CreateIndex
+CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "OAuthAccount_provider_providerAccountId_key" ON "OAuthAccount"("provider", "providerAccountId");
+
+-- CreateIndex
+CREATE INDEX "Session_userId_idx" ON "Session"("userId");
+
+-- CreateIndex
 CREATE INDEX "SloPolicy_userId_idx" ON "SloPolicy"("userId");
 
 -- CreateIndex
@@ -73,6 +122,12 @@ CREATE UNIQUE INDEX "SloWebhookMapping_sloId_webhookId_key" ON "SloWebhookMappin
 
 -- CreateIndex
 CREATE INDEX "WebhookConfig_userId_idx" ON "WebhookConfig"("userId");
+
+-- AddForeignKey
+ALTER TABLE "OAuthAccount" ADD CONSTRAINT "OAuthAccount_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Session" ADD CONSTRAINT "Session_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "SloPolicy" ADD CONSTRAINT "SloPolicy_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
