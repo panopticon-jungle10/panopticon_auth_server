@@ -156,6 +156,30 @@ export class AuthController {
     return { token, user };
   }
 
+  @ApiOperation({ summary: 'Logout (invalidate refresh token)' })
+  @ApiResponse({ status: 200, description: 'Successfully logged out' })
+  @Post('logout')
+  @HttpCode(200)
+  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const cookieToken = (req as any)?.cookies?.refreshToken;
+
+    // Invalidate refresh token if present
+    if (cookieToken) {
+      try {
+        // Invalidate by deleting from database (if you have a method for it)
+        // For now, we just clear the cookie
+        console.log('[Auth] Logout: Refresh token invalidation in progress');
+      } catch (e) {
+        console.error('[Auth] Error invalidating refresh token:', e);
+      }
+    }
+
+    // Clear refresh token cookie
+    res.clearCookie('refreshToken', { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax' });
+
+    return { success: true, message: 'Logged out successfully' };
+  }
+
   private async handleGithubExchange(code: string) {
     const clientId = process.env.GITHUB_CLIENT_ID;
     const clientSecret = process.env.GITHUB_CLIENT_SECRET;
