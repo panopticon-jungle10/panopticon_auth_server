@@ -12,8 +12,15 @@ async function bootstrap() {
   app.use(cookieParser());
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
 
-  // Enable CORS for local development so Swagger UI can be accessed from the browser
-  app.enableCors();
+  // Enable CORS with credentials support
+  app.enableCors({
+    origin: process.env.NODE_ENV === 'production'
+      ? 'https://jungle-panopticon.cloud'
+      : ['http://localhost:3000', 'http://localhost:8080'],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  });
 
   // Swagger/OpenAPI setup (only enabled outside of production)
   if ((process.env.NODE_ENV || 'development') !== 'production') {
