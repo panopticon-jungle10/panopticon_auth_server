@@ -13,14 +13,13 @@ export class SlosService {
       const slo = await this.prisma.sloPolicy.create({
         data: {
           userId,
-          serviceName: dto.serviceName,
           name: dto.name,
-          availabilityTarget: dto.availabilityTarget ?? 99.9,
-          latencyTargetMs: dto.latencyTargetMs ?? 200,
-          errorRateTarget: dto.errorRateTarget ?? 1.0,
-          availabilityEnabled: dto.availabilityEnabled ?? true,
-          latencyEnabled: dto.latencyEnabled ?? true,
-          errorRateEnabled: dto.errorRateEnabled ?? true,
+          metric: dto.metric,
+          target: dto.target,
+          sliValue: dto.sliValue ?? 0,
+          actualDowntimeMinutes: dto.actualDowntimeMinutes ?? 0,
+          totalMinutes: dto.totalMinutes,
+          connectedChannels: dto.connectedChannels ?? [],
           description: dto.description,
         },
       });
@@ -29,7 +28,7 @@ export class SlosService {
     } catch (err: any) {
       if (err.code === 'P2002') {
         throw new ConflictException(
-          `SLO policy with name "${dto.name}" for service "${dto.serviceName}" already exists`,
+          `SLO policy with name "${dto.name}" already exists`,
         );
       }
       throw new BadRequestException(err?.message || 'Failed to create SLO policy');
@@ -37,11 +36,15 @@ export class SlosService {
   }
 
   async findAll(userId: string): Promise<SloResponseDto[]> {
+    console.log(`[FIND ALL] userId: ${userId}`);
+
     const slos = await this.prisma.sloPolicy.findMany({
       where: { userId },
       include: { webhookMappings: true },
       orderBy: { createdAt: 'desc' },
     });
+
+    console.log(`[FIND ALL] Found ${slos.length} SLOs:`, slos.map(s => ({ id: s.id, userId: s.userId })));
 
     return Promise.all(slos.map((slo: any) => this.mapToResponseDtoWithWebhooks(slo)));
   }
@@ -67,26 +70,26 @@ export class SlosService {
     }
 
     try {
+      const updateData: any = {};
+      if (dto.name !== undefined) updateData.name = dto.name;
+      if (dto.metric !== undefined) updateData.metric = dto.metric;
+      if (dto.target !== undefined) updateData.target = dto.target;
+      if (dto.sliValue !== undefined) updateData.sliValue = dto.sliValue;
+      if (dto.actualDowntimeMinutes !== undefined) updateData.actualDowntimeMinutes = dto.actualDowntimeMinutes;
+      if (dto.totalMinutes !== undefined) updateData.totalMinutes = dto.totalMinutes;
+      if (dto.connectedChannels !== undefined) updateData.connectedChannels = dto.connectedChannels;
+      if (dto.description !== undefined) updateData.description = dto.description;
+
       const slo = await this.prisma.sloPolicy.update({
         where: { id: sloId },
-        data: {
-          serviceName: dto.serviceName,
-          name: dto.name,
-          availabilityTarget: dto.availabilityTarget,
-          latencyTargetMs: dto.latencyTargetMs,
-          errorRateTarget: dto.errorRateTarget,
-          availabilityEnabled: dto.availabilityEnabled,
-          latencyEnabled: dto.latencyEnabled,
-          errorRateEnabled: dto.errorRateEnabled,
-          description: dto.description,
-        },
+        data: updateData,
       });
 
       return this.mapToResponseDto(slo);
     } catch (err: any) {
       if (err.code === 'P2002') {
         throw new ConflictException(
-          `SLO policy with name "${dto.name}" for service "${dto.serviceName}" already exists`,
+          `SLO policy with name "${dto.name}" already exists`,
         );
       }
       throw new BadRequestException(err?.message || 'Failed to update SLO policy');
@@ -94,14 +97,24 @@ export class SlosService {
   }
 
   async delete(userId: string, sloId: string): Promise<void> {
+    console.log(`[DELETE SLO] userId: ${userId}, sloId: ${sloId}`);
+
     const slo = await this.prisma.sloPolicy.findUnique({ where: { id: sloId } });
+    console.log(`[DELETE SLO] Found SLO:`, slo ? { id: slo.id, userId: slo.userId } : 'NOT FOUND');
+    console.log(`[DELETE SLO] userId match: ${slo?.userId} === ${userId} ? ${slo?.userId === userId}`);
+
     if (!slo || slo.userId !== userId) {
+      console.log(`[DELETE SLO] Authorization failed - throwing NotFoundException`);
       throw new NotFoundException(`SLO policy with ID "${sloId}" not found`);
     }
 
+    console.log(`[DELETE SLO] Deleting SLO with ID: ${sloId}`);
     await this.prisma.sloPolicy.delete({ where: { id: sloId } });
+    console.log(`[DELETE SLO] Successfully deleted SLO with ID: ${sloId}`);
   }
 
+  // Note: toggleMetric is no longer needed with the new schema since each SLO has a single metric
+  // Keeping this method for backwards compatibility if needed
   async toggleMetric(
     userId: string,
     sloId: string,
@@ -112,27 +125,9 @@ export class SlosService {
       throw new NotFoundException(`SLO policy with ID "${sloId}" not found`);
     }
 
-    const updateData: any = {};
-    switch (metric) {
-      case 'availability':
-        updateData.availabilityEnabled = !slo.availabilityEnabled;
-        break;
-      case 'latency':
-        updateData.latencyEnabled = !slo.latencyEnabled;
-        break;
-      case 'error_rate':
-        updateData.errorRateEnabled = !slo.errorRateEnabled;
-        break;
-      default:
-        throw new BadRequestException(`Invalid metric: ${metric}`);
-    }
-
-    const updated = await this.prisma.sloPolicy.update({
-      where: { id: sloId },
-      data: updateData,
-    });
-
-    return this.mapToResponseDto(updated);
+    // With the new schema, SLOs have a single metric, so toggling would just delete and recreate
+    // For now, just return the existing SLO
+    return this.mapToResponseDto(slo);
   }
 
   async addWebhook(userId: string, sloId: string, webhookId: string): Promise<void> {
@@ -173,14 +168,13 @@ export class SlosService {
     return {
       id: slo.id,
       userId: slo.userId,
-      serviceName: slo.serviceName,
       name: slo.name,
-      availabilityTarget: slo.availabilityTarget,
-      latencyTargetMs: slo.latencyTargetMs,
-      errorRateTarget: slo.errorRateTarget,
-      availabilityEnabled: slo.availabilityEnabled,
-      latencyEnabled: slo.latencyEnabled,
-      errorRateEnabled: slo.errorRateEnabled,
+      metric: slo.metric,
+      target: slo.target,
+      sliValue: slo.sliValue,
+      actualDowntimeMinutes: slo.actualDowntimeMinutes,
+      totalMinutes: slo.totalMinutes,
+      connectedChannels: slo.connectedChannels,
       description: slo.description,
       createdAt: slo.createdAt,
       updatedAt: slo.updatedAt,
@@ -188,10 +182,8 @@ export class SlosService {
   }
 
   private async mapToResponseDtoWithWebhooks(slo: any): Promise<SloResponseDto> {
-    const webhookIds = slo.webhookMappings?.map((m: any) => m.webhookId) || [];
-    return {
-      ...this.mapToResponseDto(slo),
-      webhookIds,
-    };
+    // webhookMappings are no longer returned in the response
+    // connectedChannels are already included in the SLO
+    return this.mapToResponseDto(slo);
   }
 }

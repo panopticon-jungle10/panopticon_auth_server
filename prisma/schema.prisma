@@ -64,18 +64,29 @@ model SloPolicy {
   id          String    @id @default(uuid())
   userId      String
 
-  serviceName String
   name        String
-
-  availabilityTarget  Float?   @default(99.9)
-  latencyTargetMs     Float?   @default(200)
-  errorRateTarget     Float?   @default(1.0)
-
-  availabilityEnabled Boolean @default(true)
-  latencyEnabled      Boolean @default(true)
-  errorRateEnabled    Boolean @default(true)
-
   description String?
+
+  // Metric 타입: 'availability' | 'latency' | 'error_rate'
+  metric      String
+
+  // 목표값 (metric에 따라 의미가 다름)
+  // availability/error_rate: 0~1 범위 (소수점)
+  // latency: ms 단위 (정수)
+  target      Float
+
+  // SLI 값 (Service Level Indicator)
+  sliValue    Float    @default(0)
+
+  // 실제 다운타임 (분 단위)
+  actualDowntimeMinutes Float @default(0)
+
+  // 평가 기간 (분 단위: 60, 1440, 10080, 43200)
+  totalMinutes Int      @default(1440)
+
+  // 연결된 채널 (JSON 배열: ['slack', 'email'] 등)
+  connectedChannels String[]  @default([])
+
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -83,7 +94,7 @@ model SloPolicy {
   webhookMappings   SloWebhookMapping[]
 
   @@index([userId])
-  @@unique([userId, serviceName, name])
+  @@unique([userId, name])
 }
 
 model SloWebhookMapping {

@@ -151,12 +151,6 @@ export class WebhooksService {
       throw new NotFoundException(`Webhook with ID "${webhookId}" not found`);
     }
 
-    const testPayload = {
-      type: 'test',
-      message: 'This is a test message from Panopticon Auth Server',
-      timestamp: new Date().toISOString(),
-    };
-
     try {
       if (webhook.type === 'email') {
         // For email, we would normally send via SMTP, but for now just validate settings
@@ -168,13 +162,64 @@ export class WebhooksService {
         const message = 'Test email configuration validated (actual sending requires SMTP implementation)';
         await this.updateLastTestedAt(webhookId);
         return { success: true, message };
-      } else {
-        // For Slack, Discord, Teams - send actual test payload
-        await axios.post(webhook.webhookUrl, testPayload, {
+      } else if (webhook.type === 'slack') {
+        // Slack webhook payload format
+        const slackPayload = {
+          text: 'Test message from Panopticon',
+          attachments: [
+            {
+              color: '#36a64f',
+              title: 'Panopticon Webhook Test',
+              text: 'This is a test message to verify your Slack webhook is working correctly.',
+              ts: Math.floor(Date.now() / 1000),
+            },
+          ],
+        };
+        await axios.post(webhook.webhookUrl, slackPayload, {
           timeout: 5000,
         });
         await this.updateLastTestedAt(webhookId);
-        return { success: true, message: 'Test message sent successfully' };
+        return { success: true, message: 'Test message sent to Slack successfully' };
+      } else if (webhook.type === 'discord') {
+        // Discord webhook payload format
+        const discordPayload = {
+          content: 'Test message from Panopticon',
+          embeds: [
+            {
+              color: 0x3394ff, // Use hex notation instead of decimal
+              title: 'Panopticon Webhook Test',
+              description: 'This is a test message to verify your Discord webhook is working correctly.',
+              timestamp: new Date().toISOString(),
+            },
+          ],
+        };
+        await axios.post(webhook.webhookUrl, discordPayload, {
+          timeout: 5000,
+        });
+        await this.updateLastTestedAt(webhookId);
+        return { success: true, message: 'Test message sent to Discord successfully' };
+      } else if (webhook.type === 'teams') {
+        // Microsoft Teams webhook payload format (MessageCard)
+        const teamsPayload = {
+          '@type': 'MessageCard',
+          '@context': 'https://schema.org/extensions',
+          themeColor: '36a64f',
+          summary: 'Panopticon Webhook Test',
+          sections: [
+            {
+              activityTitle: 'Panopticon Webhook Test',
+              activitySubtitle: 'Test notification',
+              text: 'This is a test message to verify your Teams webhook is working correctly.',
+            },
+          ],
+        };
+        await axios.post(webhook.webhookUrl, teamsPayload, {
+          timeout: 5000,
+        });
+        await this.updateLastTestedAt(webhookId);
+        return { success: true, message: 'Test message sent to Teams successfully' };
+      } else {
+        throw new Error(`Unknown webhook type: ${webhook.type}`);
       }
     } catch (err: any) {
       throw new BadRequestException(

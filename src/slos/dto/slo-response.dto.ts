@@ -8,28 +8,31 @@ export class SloResponseDto {
   userId!: string;
 
   @ApiProperty()
-  serviceName!: string;
-
-  @ApiProperty()
   name!: string;
 
-  @ApiProperty()
-  availabilityTarget!: number;
+  @ApiProperty({
+    enum: ['availability', 'latency', 'error_rate'],
+    description: '메트릭 타입',
+  })
+  metric!: string;
 
   @ApiProperty()
-  latencyTargetMs!: number;
+  target!: number;
 
   @ApiProperty()
-  errorRateTarget!: number;
+  sliValue!: number;
 
   @ApiProperty()
-  availabilityEnabled!: boolean;
+  actualDowntimeMinutes!: number;
 
   @ApiProperty()
-  latencyEnabled!: boolean;
+  totalMinutes!: number;
 
-  @ApiProperty()
-  errorRateEnabled!: boolean;
+  @ApiProperty({
+    type: [String],
+    description: '연결된 알림 채널 배열',
+  })
+  connectedChannels!: string[];
 
   @ApiProperty({ required: false })
   description?: string;
@@ -39,10 +42,4 @@ export class SloResponseDto {
 
   @ApiProperty()
   updatedAt!: Date;
-
-  @ApiProperty({
-    type: [String],
-    description: 'SLO에 연결된 웹훅 ID 목록',
-  })
-  webhookIds?: string[];
 }

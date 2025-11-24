@@ -1,83 +1,71 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNumber, IsBoolean, IsOptional, Min, Max } from 'class-validator';
+import { IsString, IsNumber, IsOptional, Min, IsArray, IsIn } from 'class-validator';
 
 export class CreateSloDto {
   @ApiProperty({
-    example: 'product-api',
-    description: '모니터링 대상 서비스명',
-  })
-  @IsString()
-  serviceName!: string;
-
-  @ApiProperty({
-    example: '프로덕션 SLO',
-    description: 'SLO 정책 이름',
+    example: 'API 가용성 SLO',
+    description: 'SLO 이름',
   })
   @IsString()
   name!: string;
 
   @ApiProperty({
-    example: 99.9,
-    description: '가용성 목표값 (%)',
+    example: 'availability',
+    description: '메트릭 타입: availability | latency | error_rate',
+    enum: ['availability', 'latency', 'error_rate'],
+  })
+  @IsString()
+  @IsIn(['availability', 'latency', 'error_rate'])
+  metric!: string;
+
+  @ApiProperty({
+    example: 0.99,
+    description: '목표값 (metric에 따라 다름: availability/error_rate는 0~1, latency는 ms)',
+  })
+  @IsNumber()
+  @Min(0)
+  target!: number;
+
+  @ApiProperty({
+    example: 0,
+    description: 'SLI (Service Level Indicator) 값',
     required: false,
   })
   @IsOptional()
   @IsNumber()
   @Min(0)
-  @Max(100)
-  availabilityTarget?: number;
+  sliValue?: number;
 
   @ApiProperty({
-    example: 200,
-    description: 'P95 레이턴시 목표값 (ms)',
+    example: 0,
+    description: '실제 다운타임 (분 단위)',
     required: false,
   })
   @IsOptional()
   @IsNumber()
   @Min(0)
-  latencyTargetMs?: number;
+  actualDowntimeMinutes?: number;
 
   @ApiProperty({
-    example: 1.0,
-    description: '에러율 목표값 (%)',
-    required: false,
+    example: 1440,
+    description: '평가 기간 (분 단위: 60/1440/10080/43200)',
   })
-  @IsOptional()
   @IsNumber()
-  @Min(0)
-  @Max(100)
-  errorRateTarget?: number;
+  @Min(60)
+  totalMinutes!: number;
 
   @ApiProperty({
-    example: true,
-    description: '가용성 모니터링 활성화 여부',
+    example: ['slack', 'email'],
+    description: '연결된 알림 채널 배열',
     required: false,
   })
   @IsOptional()
-  @IsBoolean()
-  availabilityEnabled?: boolean;
+  @IsArray()
+  connectedChannels?: string[];
 
   @ApiProperty({
-    example: true,
-    description: '레이턴시 모니터링 활성화 여부',
-    required: false,
-  })
-  @IsOptional()
-  @IsBoolean()
-  latencyEnabled?: boolean;
-
-  @ApiProperty({
-    example: true,
-    description: '에러율 모니터링 활성화 여부',
-    required: false,
-  })
-  @IsOptional()
-  @IsBoolean()
-  errorRateEnabled?: boolean;
-
-  @ApiProperty({
-    example: '프로덕션 환경 SLO 설정',
-    description: 'SLO 정책 설명',
+    example: 'API 가용성을 99% 이상 유지하는 SLO',
+    description: 'SLO 설명',
     required: false,
   })
   @IsOptional()
