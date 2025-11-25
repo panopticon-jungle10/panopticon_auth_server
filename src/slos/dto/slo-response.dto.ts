@@ -10,6 +10,9 @@ export class SloResponseDto {
   @ApiProperty()
   name!: string;
 
+  @ApiProperty({ required: false })
+  serviceName?: string;
+
   @ApiProperty({
     enum: ['availability', 'latency', 'error_rate'],
     description: '메트릭 타입',

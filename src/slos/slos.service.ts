@@ -14,6 +14,7 @@ export class SlosService {
         data: {
           userId,
           name: dto.name,
+          serviceName: dto.serviceName,
           metric: dto.metric,
           target: dto.target,
           sliValue: dto.sliValue ?? 0,
@@ -72,6 +73,7 @@ export class SlosService {
     try {
       const updateData: any = {};
       if (dto.name !== undefined) updateData.name = dto.name;
+      if (dto.serviceName !== undefined) updateData.serviceName = dto.serviceName;
       if (dto.metric !== undefined) updateData.metric = dto.metric;
       if (dto.target !== undefined) updateData.target = dto.target;
       if (dto.sliValue !== undefined) updateData.sliValue = dto.sliValue;
@@ -169,6 +171,7 @@ export class SlosService {
       id: slo.id,
       userId: slo.userId,
       name: slo.name,
+      serviceName: slo.serviceName,
       metric: slo.metric,
       target: slo.target,
       sliValue: slo.sliValue,

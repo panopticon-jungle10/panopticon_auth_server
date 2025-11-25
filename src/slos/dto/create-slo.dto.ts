@@ -10,6 +10,15 @@ export class CreateSloDto {
   name!: string;
 
   @ApiProperty({
+    example: 'user-service',
+    description: '관련 서비스 이름',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  serviceName?: string;
+
+  @ApiProperty({
     example: 'availability',
     description: '메트릭 타입: availability | latency | error_rate',
     enum: ['availability', 'latency', 'error_rate'],

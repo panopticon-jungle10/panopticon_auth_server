@@ -66,6 +66,7 @@ model SloPolicy {
 
   name        String
   description String?
+  serviceName String?
 
   // Metric 타입: 'availability' | 'latency' | 'error_rate'
   metric      String
